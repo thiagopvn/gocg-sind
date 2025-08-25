@@ -1,40 +1,35 @@
 {
   "version": 2,
   "name": "sind-gocg-web",
-  "builds": [
-    {
-      "src": "public/**/*",
-      "use": "@vercel/static"
+  "functions": {
+    "api/get-openai-key.js": {
+      "runtime": "nodejs18.x"
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/",
-      "dest": "/login.html"
+      "source": "/",
+      "destination": "/login.html"
     },
     {
-      "src": "/login",
-      "dest": "/login.html"
+      "source": "/login",
+      "destination": "/login.html"
     },
     {
-      "src": "/dashboard",
-      "dest": "/dashboard-simple.html"
+      "source": "/dashboard",
+      "destination": "/dashboard-simple.html"
     },
     {
-      "src": "/inquiry",
-      "dest": "/inquiry.html"
+      "source": "/inquiry",
+      "destination": "/sindicancia-detalhes.html"
     },
     {
-      "src": "/hearing",
-      "dest": "/hearing.html"
+      "source": "/hearing",
+      "destination": "/realizar-oitiva.html"
     },
     {
-      "src": "/realizar-oitiva",
-      "dest": "/realizar-oitiva.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "source": "/realizar-oitiva",
+      "destination": "/realizar-oitiva.html"
     }
   ],
   "headers": [

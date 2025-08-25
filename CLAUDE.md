@@ -27,11 +27,11 @@ npm run preview
 
 ### OpenAI Configuration
 ```bash
-# Create .env file with OpenAI API key (required for transcription)
-echo "OPENAI_API_KEY=sk-your-key-here" > .env
+# Set OpenAI API key as environment variable in Vercel (required for transcription)
+# In Vercel dashboard: Settings > Environment Variables > Add OPENAI_API_KEY
+# Value: sk-your-key-here
 
-# Alternative: Edit public/js/config.js directly
-# Set window.OPENAI_API_KEY = 'your-key-here'
+# No client-side configuration needed - API key is securely handled by serverless functions
 ```
 
 ## Application Architecture
@@ -66,12 +66,15 @@ The app uses Firebase v9.23.0 SDK with:
 - `firebase-config.js` - Alternative Firebase config (ES6 modules)
 - Firebase credentials are hardcoded in configuration files
 
-### AI Transcription Service
-**OpenAI Whisper + GPT-4 (`public/js/transcription.js`)**:
+### AI Transcription Service (Serverless Proxy Architecture)
+**OpenAI Whisper + GPT-4 via Serverless Functions**:
+- **Client (`public/js/transcription.js`)**: Records audio and sends to serverless proxy
+- **Serverless API (`/api/transcribe.js`)**: Secure proxy that handles OpenAI API calls
 - Two-stage transcription: Whisper for audio-to-text, GPT-4 for formatting
-- Audio recorded in 5-second segments, automatically converted to WAV format
+- Audio recorded in 5-second segments, processed server-side for reliability
 - Intelligent legal document formatting with military terminology
-- OpenAI API key configured via environment variables or config.js
+- **Security**: OpenAI API key stored securely as environment variable on server
+- **Text Enhancement API (`/api/enhance-text.js`)**: GPT-4 powered text improvement
 - Microphone access through Web APIs (getUserMedia)
 
 ### Data Structure
@@ -119,12 +122,14 @@ oficios/
 - No build process for CSS - plain CSS files served directly
 
 ### When Working with Transcription
-- OpenAI Whisper + GPT-4 configured for web environment
-- API key must be set in `.env` file or `public/js/config.js`
-- Audio automatically converted to WAV format for Whisper compatibility
+- **New Architecture**: Client records audio, serverless functions handle OpenAI API
+- **Security**: OpenAI API key stored only as Vercel environment variable
+- **No Client-Side Secrets**: No API keys or sensitive data in browser
+- Audio processed server-side for consistent format compatibility
 - GPT-4 formats transcription into professional legal document structure
 - TranscriptionService uses Web APIs for microphone access
 - Audio recording uses WebRTC APIs (getUserMedia)
+- **Reliability**: Server handles audio format conversion and API retries
 
 ## Important Development Notes
 
@@ -147,8 +152,9 @@ oficios/
 ### Deployment Considerations
 - Optimized for Vercel serverless deployment
 - Static files served from `public/` directory
-- No server-side processing required
-- Firebase handles all backend functionality
+- **Serverless Functions**: `/api/transcribe.js` and `/api/enhance-text.js` for OpenAI integration
+- Firebase handles data storage and authentication
+- OpenAI processing handled by secure serverless functions
 
 ### Development Workflow
 - Use local development server for testing
@@ -170,11 +176,13 @@ oficios/
 - Check browser console for CORS errors
 
 ### Transcription Not Working
-- Verify OpenAI API key is correctly configured in `.env` or `config.js`
+- **API Key**: Verify `OPENAI_API_KEY` environment variable is set in Vercel dashboard
 - Check microphone permissions in browser settings
 - Ensure HTTPS is used for microphone access (required by browsers)
 - Confirm sufficient OpenAI API credits are available
-- Check browser console for audio format conversion errors
+- Check browser console for serverless function errors
+- Verify `/api/transcribe` endpoint is accessible
+- **No Client-Side Config**: No need for local config files or environment variables
 
 ### Deployment Issues
 - Ensure `public/` directory contains all necessary files for Vercel static deployment

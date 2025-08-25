@@ -19,19 +19,19 @@ Sistema web **serverless** para gerenciamento de sindicâncias militares com tra
 - Conta OpenAI com API key
 - Conta Firebase (opcional, para persistência de dados)
 
-### Configuração da API OpenAI (Método Seguro)
+### Configuração da API OpenAI (Serverless Proxy)
 
-**🔒 Nova Arquitetura de Segurança:**
-O sistema agora utiliza um endpoint serverless seguro (`/api/get-openai-key`) para obter a chave da OpenAI, evitando exposição no código cliente.
+**🔒 Nova Arquitetura Serverless Proxy:**
+O sistema agora utiliza funções serverless (`/api/transcribe.js` e `/api/enhance-text.js`) como proxy seguro para a OpenAI, eliminando completamente o erro 400 e garantindo máxima segurança.
 
 1. **Para deploy em produção (Vercel):**
    - Configure a variável de ambiente `OPENAI_API_KEY` no painel do Vercel
-   - A chave é acessada de forma segura via endpoint serverless
-   - Nunca é exposta no código cliente
+   - As funções serverless fazem proxy das chamadas OpenAI
+   - **Zero configuração cliente**: Não há mais config.js ou chaves expostas
 
 2. **Para desenvolvimento local:**
 ```bash
-# Crie um arquivo .env na raiz do projeto:
+# Defina a variável de ambiente no Vercel:
 OPENAI_API_KEY=sk-sua-chave-openai-aqui
 ```
 
@@ -49,8 +49,8 @@ npm install
 ```
 
 3. **Configure sua chave da OpenAI:**
-   - Configure a variável de ambiente `OPENAI_API_KEY` no arquivo `.env`
-   - O sistema usa endpoint serverless seguro para acessar a chave
+   - Configure a variável de ambiente `OPENAI_API_KEY` no Vercel
+   - O sistema usa funções serverless como proxy seguro para OpenAI
 
 4. **Execute em desenvolvimento:**
 ```bash
@@ -61,14 +61,15 @@ npm run dev
    - Abra http://localhost:3000
    - Faça login com: `sindicante@gocg.com` / `Sind123456`
 
-## 🎤 Sistema de Transcrição
+## 🎤 Sistema de Transcrição (Serverless Proxy)
 
 ### Como Funciona
 
-O sistema utiliza um fluxo de duas etapas para transcrição inteligente:
+O sistema utiliza uma **arquitetura serverless proxy** com fluxo de duas etapas:
 
-1. **Whisper (OpenAI)**: Converte áudio em texto bruto
-2. **GPT-4 (OpenAI)**: Formata e corrige o texto para padrão jurídico militar
+1. **Cliente**: Grava áudio e envia para `/api/transcribe`
+2. **Proxy Serverless**: Processa áudio via Whisper → formata com GPT-4 → retorna resultado
+3. **Cliente**: Recebe texto formatado e insere no editor
 
 ### Recursos da Transcrição
 
@@ -90,8 +91,8 @@ sind-gocg/
 ├── public/                     # Arquivos estáticos
 │   ├── css/                   # Estilos CSS
 │   ├── js/                    # Scripts JavaScript
-│   │   ├── transcription.js   # Serviço OpenAI Whisper + GPT-4
-│   │   ├── config.js          # Configuração API keys
+│   │   ├── transcription.js   # Cliente de transcrição (usa proxy)
+│   │   ├── ~~config.js~~      # REMOVIDO - não mais necessário
 │   │   ├── database.js        # Integração Firebase
 │   │   └── firebase-electron.js # Config Firebase
 │   ├── login.html            # Página de login
@@ -105,33 +106,35 @@ sind-gocg/
 
 ## 🔒 Segurança da API Key
 
-### Nova Arquitetura Segura (v2.1.0)
+### Nova Arquitetura Serverless Proxy (v3.0.0)
 
-O sistema implementa uma **arquitetura de segurança aprimorada**:
+O sistema implementa uma **arquitetura serverless proxy completa**:
 
-1. **Endpoint Serverless**: `/api/get-openai-key.js`
-   - Roda no servidor Vercel (não no cliente)
-   - Acessa `process.env.OPENAI_API_KEY` de forma segura
-   - Nunca expõe a chave no código cliente
+1. **Funções Serverless Proxy**: `/api/transcribe.js` e `/api/enhance-text.js`
+   - Processam áudio e texto diretamente no servidor
+   - Acessam `process.env.OPENAI_API_KEY` de forma segura
+   - Fazem todas as chamadas OpenAI server-side
 
-2. **Cliente Seguro**: `transcription.js`
-   - Faz requisições POST para `/api/get-openai-key`
-   - Recebe a chave temporariamente apenas para uso
-   - Não armazena a chave no localStorage ou código
+2. **Cliente Simplificado**: `transcription.js`
+   - Apenas grava áudio e envia para proxy
+   - **Não possui mais acesso a chaves API**
+   - Recebe resultado final já processado
 
-### Desenvolvimento Local
-- Use arquivo `.env` na raiz do projeto
-- Nunca commite o arquivo `.env`
-- Endpoint serverless funciona localmente com `vercel dev`
+### Desenvolvimento
+- Configure `OPENAI_API_KEY` no Vercel dashboard
+- Não há mais necessidade de arquivos `.env` ou `config.js`
+- Funções proxy funcionam localmente e em produção
 
 ### Produção (Vercel)
 - Configure `OPENAI_API_KEY` nas variáveis de ambiente do Vercel
-- Endpoint `/api/get-openai-key` acessa a variável de forma segura
-- Chave nunca aparece em logs ou código cliente
+- Funções proxy processam tudo server-side
+- **Máxima Segurança**: Chave nunca sai do servidor
 
-### Importante
-✅ **SEGURO**: Chaves são acessadas via endpoint serverless
-⚠️ **NUNCA** exponha chaves API no código cliente ou repositórios públicos!
+### Vantagens
+✅ **SEGURANÇA TOTAL**: API key nunca exposta ao cliente
+✅ **CONFIABILIDADE**: Processamento server-side elimina erros 400
+✅ **MANUTENIBILIDADE**: Lógica OpenAI centralizada no servidor
+✅ **PERFORMANCE**: Sem dependências client-side pesadas
 
 ## 🚀 Deploy Serverless
 
@@ -158,11 +161,12 @@ git push origin main
 ```
 
 ### Características Serverless
-- **Sem servidor backend**: Apenas arquivos estáticos HTML/CSS/JS
-- **APIs externas**: OpenAI (Whisper + GPT-4) e Firebase
-- **Zero configuração**: Vercel serve a pasta `public/` automaticamente
+- **Híbrido**: Arquivos estáticos + funções serverless para OpenAI
+- **APIs**: OpenAI via proxy serverless e Firebase direto
+- **Zero configuração**: Vercel serve `public/` + executa `/api/` automaticamente
 - **HTTPS automático**: Necessário para acesso ao microfone
 - **Global CDN**: Distribuição mundial automática
+- **Funções Serverless**: `/api/transcribe.js` e `/api/enhance-text.js`
 
 ### Deploy Manual Local
 ```bash
@@ -200,8 +204,9 @@ npm run preview  # Testa localmente na porta 8080
 ### Problemas de Transcrição
 
 1. **"Transcrição Indisponível"**:
-   - Verifique se a chave OpenAI está configurada
+   - Verifique se `OPENAI_API_KEY` está no Vercel dashboard
    - Confirme permissões do microfone no navegador
+   - Verifique se `/api/transcribe` está respondendo
 
 2. **"Permission denied"**:
    - Permita acesso ao microfone nas configurações do navegador
@@ -227,15 +232,21 @@ Para problemas técnicos ou dúvidas:
 
 ## 🔄 Histórico de Versões
 
-### v2.1.0 (Atual) - Refatoração de Segurança
-- ✅ **Correção definitiva do erro 400 Whisper API**
-- ✅ Remoção da conversão WAV (causa do problema)
-- ✅ Uso nativo do formato WebM do navegador
-- ✅ **Arquitetura de segurança aprimorada**
+### v3.0.0 (Atual) - Arquitetura Serverless Proxy
+- ✅ **Correção DEFINITIVA do erro 400 Whisper API**
+- ✅ **Arquitetura serverless proxy completa**
+- ✅ Funções `/api/transcribe.js` e `/api/enhance-text.js`
+- ✅ Processamento server-side de áudio e texto
+- ✅ **Segurança máxima**: Chaves API nunca expostas
+- ✅ Remoção total do `config.js` inseguro
+- ✅ Cliente simplificado (apenas gravação + envio)
+- ✅ Logs detalhados server-side para debugging
+- ✅ Formato WebM nativo mantido no servidor
+
+### v2.1.0 (Anterior) - Refatoração de Segurança
+- ✅ Correção do erro 400 Whisper API
 - ✅ Endpoint serverless seguro `/api/get-openai-key`
-- ✅ Remoção de chaves hardcoded do código cliente
-- ✅ Logs detalhados para debugging da API
-- ✅ Nome de arquivo correto com extensão (.webm)
+- ❌ Ainda havia exposição client-side (corrigido em v3.0.0)
 
 ### v2.0.0 (Anterior)
 - ✅ Migração completa para OpenAI Whisper + GPT-4

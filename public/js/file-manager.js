@@ -1,75 +1,105 @@
-import { storage } from './firebase-config.js';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-const { ipcRenderer } = require('electron');
+// File Manager Service usando Firebase Global (CDN)
+// O Firebase já está carregado globalmente via firebase-electron.js
+// Nota: Este arquivo foi atualizado para funcionar no ambiente web/serverless
 
 export class FileManager {
   constructor() {
     this.uploadProgress = new Map();
+    this.waitForFirebase();
   }
 
+  waitForFirebase() {
+    return new Promise((resolve) => {
+      const checkFirebase = () => {
+        if (window.firebaseStorage) {
+          this.storage = window.firebaseStorage;
+          resolve();
+        } else {
+          setTimeout(checkFirebase, 100);
+        }
+      };
+      checkFirebase();
+    });
+  }
+
+  // Para ambiente web - usa input file HTML
   async selectFile() {
-    try {
-      const filePath = await ipcRenderer.invoke('select-file');
-      return filePath;
-    } catch (error) {
-      console.error('Error selecting file:', error);
-      return null;
-    }
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf,.doc,.docx';
+      
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          resolve(file);
+        } else {
+          resolve(null);
+        }
+      };
+      
+      input.click();
+    });
   }
 
-  async uploadDocument(filePath, hearingId, progressCallback) {
+  async uploadDocument(file, hearingId, progressCallback) {
     try {
-      // Read file data
-      const fileData = await ipcRenderer.invoke('read-file', filePath);
-      const fileName = filePath.split('/').pop() || filePath.split('\\').pop();
+      await this.waitForFirebase();
+      
+      // Validar tipo de arquivo
+      const fileName = file.name;
       const fileExtension = fileName.split('.').pop().toLowerCase();
       
-      // Validate file type
       if (!['pdf', 'doc', 'docx'].includes(fileExtension)) {
         throw new Error('Tipo de arquivo não suportado. Use apenas PDF, DOC ou DOCX.');
       }
 
-      // Create unique file name
+      // Validar tamanho (10MB máximo)
+      this.validateFileSize(file, 10);
+
+      // Criar nome único
       const timestamp = Date.now();
       const uniqueFileName = `${timestamp}_${fileName}`;
       const storagePath = `oficios/${hearingId}/${uniqueFileName}`;
       
-      // Create storage reference
-      const storageRef = ref(storage, storagePath);
+      // Criar referência no storage
+      const storageRef = this.storage.ref(storagePath);
       
-      // Convert file data to blob
-      const blob = new Blob([fileData]);
-      
-      // Upload with progress tracking
-      const uploadTask = uploadBytes(storageRef, blob);
-      
-      // Track upload progress
+      // Upload com tracking de progresso
       this.uploadProgress.set(hearingId, { progress: 0, status: 'uploading' });
       
-      if (progressCallback) {
-        // Simulate progress updates (Firebase Web SDK doesn't provide real progress)
-        const progressInterval = setInterval(() => {
-          const current = this.uploadProgress.get(hearingId);
-          if (current && current.progress < 90) {
-            current.progress += 10;
-            progressCallback(current.progress);
+      // Iniciar upload
+      const uploadTask = storageRef.put(file);
+      
+      // Monitorar progresso
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          this.uploadProgress.set(hearingId, { progress, status: 'uploading' });
+          if (progressCallback) {
+            progressCallback(progress);
           }
-        }, 200);
-
-        uploadTask.then(() => {
-          clearInterval(progressInterval);
-          if (progressCallback) progressCallback(100);
-        });
-      }
+        },
+        (error) => {
+          console.error('Erro no upload:', error);
+          this.uploadProgress.set(hearingId, { progress: 0, status: 'error', error: error.message });
+        },
+        async () => {
+          // Upload completo
+          const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+          this.uploadProgress.set(hearingId, { progress: 100, status: 'completed' });
+          if (progressCallback) {
+            progressCallback(100);
+          }
+        }
+      );
       
-      // Wait for upload completion
-      const snapshot = await uploadTask;
+      // Aguardar conclusão
+      await new Promise((resolve, reject) => {
+        uploadTask.then(resolve).catch(reject);
+      });
       
-      // Get download URL
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      // Update progress
-      this.uploadProgress.set(hearingId, { progress: 100, status: 'completed' });
+      const downloadURL = await storageRef.getDownloadURL();
       
       return {
         success: true,
@@ -80,7 +110,7 @@ export class FileManager {
       
     } catch (error) {
       this.uploadProgress.set(hearingId, { progress: 0, status: 'error', error: error.message });
-      console.error('Error uploading document:', error);
+      console.error('Erro ao fazer upload:', error);
       return {
         success: false,
         error: error.message
@@ -90,11 +120,12 @@ export class FileManager {
 
   async deleteDocument(storagePath) {
     try {
-      const storageRef = ref(storage, storagePath);
-      await deleteObject(storageRef);
+      await this.waitForFirebase();
+      const storageRef = this.storage.ref(storagePath);
+      await storageRef.delete();
       return { success: true };
     } catch (error) {
-      console.error('Error deleting document:', error);
+      console.error('Erro ao deletar documento:', error);
       return { success: false, error: error.message };
     }
   }
@@ -107,9 +138,9 @@ export class FileManager {
     this.uploadProgress.delete(hearingId);
   }
 
-  // Helper method to validate file size
-  validateFileSize(fileData, maxSizeMB = 10) {
-    const fileSizeBytes = fileData.byteLength || fileData.length;
+  // Validar tamanho do arquivo
+  validateFileSize(file, maxSizeMB = 10) {
+    const fileSizeBytes = file.size;
     const fileSizeMB = fileSizeBytes / (1024 * 1024);
     
     if (fileSizeMB > maxSizeMB) {
@@ -119,23 +150,22 @@ export class FileManager {
     return true;
   }
 
-  // Helper method to get file info
-  async getFileInfo(filePath) {
-    try {
-      const fileData = await ipcRenderer.invoke('read-file', filePath);
-      const fileName = filePath.split('/').pop() || filePath.split('\\').pop();
-      const fileSize = fileData.byteLength || fileData.length;
-      const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
-      
-      return {
-        name: fileName,
-        size: fileSize,
-        sizeMB: fileSizeMB,
-        extension: fileName.split('.').pop().toLowerCase()
-      };
-    } catch (error) {
-      console.error('Error getting file info:', error);
-      return null;
-    }
+  // Obter informações do arquivo
+  getFileInfo(file) {
+    if (!file) return null;
+    
+    const fileName = file.name;
+    const fileSize = file.size;
+    const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+    
+    return {
+      name: fileName,
+      size: fileSize,
+      sizeMB: fileSizeMB,
+      extension: fileName.split('.').pop().toLowerCase()
+    };
   }
 }
+
+// Global compatibility
+window.FileManager = FileManager;

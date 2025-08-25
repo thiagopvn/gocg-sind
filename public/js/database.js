@@ -1,35 +1,39 @@
-import { db, storage } from './firebase-config.js';
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  getDoc,
-  query, 
-  where, 
-  orderBy,
-  onSnapshot,
-  serverTimestamp
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+// Database Service usando Firebase Global (CDN)
+// O Firebase já está carregado globalmente via firebase-electron.js
 
 export class DatabaseService {
   constructor(authService) {
     this.auth = authService;
+    // Aguarda o Firebase estar disponível
+    this.waitForFirebase();
+  }
+
+  waitForFirebase() {
+    return new Promise((resolve) => {
+      const checkFirebase = () => {
+        if (window.firebaseDb && window.firebaseStorage) {
+          this.db = window.firebaseDb;
+          this.storage = window.firebaseStorage;
+          resolve();
+        } else {
+          setTimeout(checkFirebase, 100);
+        }
+      };
+      checkFirebase();
+    });
   }
 
   // Sindicâncias Management
   async createInquiry(data) {
     try {
+      await this.waitForFirebase();
       const inquiryData = {
         ...data,
         sindicanteId: this.auth.getCurrentUser().uid,
-        dataInstauracao: serverTimestamp()
+        dataInstauracao: firebase.firestore.FieldValue.serverTimestamp()
       };
       
-      const docRef = await addDoc(collection(db, 'sindicancias'), inquiryData);
+      const docRef = await this.db.collection('sindicancias').add(inquiryData);
       return { success: true, id: docRef.id };
     } catch (error) {
       return { success: false, error: error.message };
@@ -38,14 +42,13 @@ export class DatabaseService {
 
   async getInquiries() {
     try {
+      await this.waitForFirebase();
       const userId = this.auth.getCurrentUser().uid;
-      const q = query(
-        collection(db, 'sindicancias'),
-        where('sindicanteId', '==', userId),
-        orderBy('dataInstauracao', 'desc')
-      );
+      const q = this.db.collection('sindicancias')
+        .where('sindicanteId', '==', userId)
+        .orderBy('dataInstauracao', 'desc');
       
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await q.get();
       const inquiries = [];
       querySnapshot.forEach((doc) => {
         inquiries.push({ id: doc.id, ...doc.data() });
@@ -60,15 +63,16 @@ export class DatabaseService {
   // Oitivas Management
   async createHearing(inquiryId, data) {
     try {
+      await this.waitForFirebase();
       const hearingData = {
         ...data,
         status: 'Agendada'
       };
       
-      const docRef = await addDoc(
-        collection(db, 'sindicancias', inquiryId, 'oitivas'), 
-        hearingData
-      );
+      const docRef = await this.db.collection('sindicancias')
+        .doc(inquiryId)
+        .collection('oitivas')
+        .add(hearingData);
       return { success: true, id: docRef.id };
     } catch (error) {
       return { success: false, error: error.message };
@@ -77,12 +81,13 @@ export class DatabaseService {
 
   async getHearings(inquiryId) {
     try {
-      const q = query(
-        collection(db, 'sindicancias', inquiryId, 'oitivas'),
-        orderBy('dataOitiva', 'asc')
-      );
+      await this.waitForFirebase();
+      const q = this.db.collection('sindicancias')
+        .doc(inquiryId)
+        .collection('oitivas')
+        .orderBy('dataOitiva', 'asc');
       
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await q.get();
       const hearings = [];
       querySnapshot.forEach((doc) => {
         hearings.push({ id: doc.id, ...doc.data() });
@@ -96,8 +101,12 @@ export class DatabaseService {
 
   async updateHearing(inquiryId, hearingId, data) {
     try {
-      const hearingRef = doc(db, 'sindicancias', inquiryId, 'oitivas', hearingId);
-      await updateDoc(hearingRef, data);
+      await this.waitForFirebase();
+      const hearingRef = this.db.collection('sindicancias')
+        .doc(inquiryId)
+        .collection('oitivas')
+        .doc(hearingId);
+      await hearingRef.update(data);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -106,10 +115,14 @@ export class DatabaseService {
 
   async getHearing(inquiryId, hearingId) {
     try {
-      const hearingRef = doc(db, 'sindicancias', inquiryId, 'oitivas', hearingId);
-      const hearingSnap = await getDoc(hearingRef);
+      await this.waitForFirebase();
+      const hearingRef = this.db.collection('sindicancias')
+        .doc(inquiryId)
+        .collection('oitivas')
+        .doc(hearingId);
+      const hearingSnap = await hearingRef.get();
       
-      if (hearingSnap.exists()) {
+      if (hearingSnap.exists) {
         return { success: true, data: { id: hearingSnap.id, ...hearingSnap.data() } };
       } else {
         return { success: false, error: 'Oitiva não encontrada' };
@@ -122,9 +135,10 @@ export class DatabaseService {
   // File Upload
   async uploadDocument(file, path) {
     try {
-      const storageRef = ref(storage, path);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      await this.waitForFirebase();
+      const storageRef = this.storage.ref(path);
+      const snapshot = await storageRef.put(file);
+      const downloadURL = await snapshot.ref.getDownloadURL();
       return { success: true, url: downloadURL };
     } catch (error) {
       return { success: false, error: error.message };
@@ -133,34 +147,36 @@ export class DatabaseService {
 
   // Real-time listeners
   listenToHearings(inquiryId, callback) {
-    const q = query(
-      collection(db, 'sindicancias', inquiryId, 'oitivas'),
-      orderBy('dataOitiva', 'asc')
-    );
-    
-    return onSnapshot(q, (snapshot) => {
-      const hearings = [];
-      snapshot.forEach((doc) => {
-        hearings.push({ id: doc.id, ...doc.data() });
+    this.waitForFirebase().then(() => {
+      const q = this.db.collection('sindicancias')
+        .doc(inquiryId)
+        .collection('oitivas')
+        .orderBy('dataOitiva', 'asc');
+      
+      return q.onSnapshot((snapshot) => {
+        const hearings = [];
+        snapshot.forEach((doc) => {
+          hearings.push({ id: doc.id, ...doc.data() });
+        });
+        callback(hearings);
       });
-      callback(hearings);
     });
   }
 
   listenToInquiries(callback) {
-    const userId = this.auth.getCurrentUser().uid;
-    const q = query(
-      collection(db, 'sindicancias'),
-      where('sindicanteId', '==', userId),
-      orderBy('dataInstauracao', 'desc')
-    );
-    
-    return onSnapshot(q, (snapshot) => {
-      const inquiries = [];
-      snapshot.forEach((doc) => {
-        inquiries.push({ id: doc.id, ...doc.data() });
+    this.waitForFirebase().then(() => {
+      const userId = this.auth.getCurrentUser().uid;
+      const q = this.db.collection('sindicancias')
+        .where('sindicanteId', '==', userId)
+        .orderBy('dataInstauracao', 'desc');
+      
+      return q.onSnapshot((snapshot) => {
+        const inquiries = [];
+        snapshot.forEach((doc) => {
+          inquiries.push({ id: doc.id, ...doc.data() });
+        });
+        callback(inquiries);
       });
-      callback(inquiries);
     });
   }
 }

@@ -1,11 +1,4 @@
 {
-  "version": 2,
-  "name": "sind-gocg-web",
-  "functions": {
-    "api/get-openai-key.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/",

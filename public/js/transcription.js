@@ -195,6 +195,10 @@ class OpenAITranscriptionService {
 
             const data = await response.json();
             
+            // ----> INÍCIO DA MODIFICAÇÃO <----
+            console.log('✅ RESPOSTA RECEBIDA DO PROXY:', JSON.stringify(data, null, 2));
+            // ----> FIM DA MODIFICAÇÃO <----
+            
             if (!data.success) {
                 throw new Error(data.error || 'Unknown proxy error');
             }

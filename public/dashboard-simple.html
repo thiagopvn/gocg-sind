@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIND-GOCG - Dashboard</title>
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-left">
+                <img src="../../assets/brasao.png" alt="Brasão" class="logo">
+                <h1>SIND-GOCG</h1>
+            </div>
+            <div class="header-right">
+                <span id="user-email" class="user-email">sindicante@gocg.com</span>
+                <button id="logout-btn" class="logout-btn">Sair</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="content-header">
+                <h2>Sindicâncias</h2>
+                <button id="new-inquiry-btn" class="primary-btn">Nova Sindicância</button>
+            </div>
+
+            <div class="inquiries-grid" id="inquiries-grid">
+                <div class="inquiry-card" data-inquiry-id="inquiry1">
+                    <div class="card-header">
+                        <h3>001/2025</h3>
+                        <span class="card-date">24/08/2025</span>
+                    </div>
+                    <div class="card-content">
+                        <p class="card-description">Sumiço de EPI - Colete Balístico - Investigação inicial sobre o desaparecimento de equipamento de proteção individual</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="view-btn" onclick="navigateToInquiry('inquiry1')">Gerenciar Sindicância</button>
+                    </div>
+                </div>
+
+                <div class="inquiry-card" data-inquiry-id="inquiry2">
+                    <div class="card-header">
+                        <h3>002/2025</h3>
+                        <span class="card-date">20/08/2025</span>
+                    </div>
+                    <div class="card-content">
+                        <p class="card-description">Procedimento Administrativo - Falta injustificada - Apuração de ausência não autorizada</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="view-btn" onclick="navigateToInquiry('inquiry2')">Gerenciar Sindicância</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for New Inquiry -->
+    <div id="new-inquiry-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Nova Sindicância</h3>
+                <span class="close" id="close-modal">&times;</span>
+            </div>
+            <form id="new-inquiry-form" class="modal-form">
+                <div class="form-group">
+                    <label for="numeroProcesso">Número do Processo:</label>
+                    <input type="text" id="numeroProcesso" name="numeroProcesso" required placeholder="Ex: 003/2025">
+                </div>
+                
+                <div class="form-group">
+                    <label for="objetoApuracao">Objeto da Apuração:</label>
+                    <textarea id="objetoApuracao" name="objetoApuracao" required placeholder="Descrição do objeto da sindicância"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn" id="cancel-btn">Cancelar</button>
+                    <button type="submit" class="primary-btn">Criar Sindicância</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="../js/firebase-electron.js"></script>
+    <script>
+        
+        // DOM Elements
+        const logoutBtn = document.getElementById('logout-btn');
+        const newInquiryBtn = document.getElementById('new-inquiry-btn');
+        const newInquiryModal = document.getElementById('new-inquiry-modal');
+        const closeModal = document.getElementById('close-modal');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const newInquiryForm = document.getElementById('new-inquiry-form');
+
+        // Event Listeners
+        logoutBtn.addEventListener('click', async () => {
+            if (confirm('Deseja fazer logout?')) {
+                if (window.Firebase && window.Firebase.signOut) {
+                    try {
+                        await window.Firebase.signOut(window.firebaseAuth);
+                        window.location.href = 'login.html';
+                    } catch (error) {
+                        console.error('Erro no logout:', error);
+                        window.location.href = 'login.html';
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            }
+        });
+
+        newInquiryBtn.addEventListener('click', () => {
+            newInquiryModal.style.display = 'flex';
+        });
+
+        closeModal.addEventListener('click', () => {
+            newInquiryModal.style.display = 'none';
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            newInquiryModal.style.display = 'none';
+        });
+
+        newInquiryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const numeroProcesso = document.getElementById('numeroProcesso').value;
+            const objetoApuracao = document.getElementById('objetoApuracao').value;
+            
+            alert(`Sindicância criada com sucesso!\nProcesso: ${numeroProcesso}\nObjeto: ${objetoApuracao}\n\nEm breve a funcionalidade completa estará disponível.`);
+            
+            newInquiryModal.style.display = 'none';
+            newInquiryForm.reset();
+        });
+
+        // Close modal when clicking outside
+        newInquiryModal.addEventListener('click', (e) => {
+            if (e.target === newInquiryModal) {
+                newInquiryModal.style.display = 'none';
+            }
+        });
+
+        // Function to navigate to inquiry details
+        function navigateToInquiry(inquiryId) {
+            window.location.href = `sindicancia-detalhes.html?id=${inquiryId}`;
+        }
+
+        console.log('📊 Dashboard carregado com sucesso!');
+    </script>
+</body>
+</html>

@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIND-GOCG - Realizar Oitiva</title>
+    <link rel="stylesheet" href="../css/realizar-oitiva.css">
+    <!-- Quill.js CDN -->
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-left">
+                <img src="../../assets/brasao.png" alt="Brasão" class="logo">
+                <h1>SIND-GOCG</h1>
+            </div>
+            <div class="header-right">
+                <button id="back-btn" class="back-btn">← Voltar aos Detalhes</button>
+                <span id="user-email" class="user-email">sindicante@gocg.com</span>
+                <button id="logout-btn" class="logout-btn">Sair</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="hearing-header">
+                <h2 id="hearing-title">Carregando...</h2>
+                <div class="hearing-info">
+                    <p id="witness-info">Carregando informações da testemunha...</p>
+                    <p id="hearing-datetime">Carregando data e hora...</p>
+                </div>
+            </div>
+
+            <div class="editor-container">
+                <div class="toolbar-container">
+                    <div class="transcription-controls">
+                        <button id="start-transcription-btn" class="transcription-btn start-btn">
+                            🎤 Iniciar Transcrição
+                        </button>
+                        <button id="stop-transcription-btn" class="transcription-btn stop-btn" disabled>
+                            ⏹️ Parar Transcrição
+                        </button>
+                        <button id="enhance-text-btn" class="transcription-btn ai-btn">
+                            🧠 Melhorar Texto Selecionado
+                        </button>
+                        <div class="transcription-status" id="transcription-status">
+                            <span class="status-text">Transcrição inativa</span>
+                            <div class="ai-status" id="ai-status" style="display: none;">
+                                <span class="ai-indicator">🧠 IA processando...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <button id="save-btn" class="primary-btn">💾 Salvar</button>
+                        <button id="save-and-finish-btn" class="success-btn">✅ Salvar e Finalizar Oitiva</button>
+                    </div>
+                </div>
+
+                <!-- Quill Editor -->
+                <div id="editor-container">
+                    <div id="editor"></div>
+                </div>
+            </div>
+
+            <!-- Audio Controls (Hidden) -->
+            <audio id="audio-preview" controls style="display: none;"></audio>
+        </main>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loading-modal" class="modal" style="display: none;">
+        <div class="modal-content loading-content">
+            <div class="loading-spinner"></div>
+            <p>Carregando editor...</p>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Finalizar Oitiva</h3>
+                <span class="close" id="close-confirmation-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Deseja realmente finalizar esta oitiva?</p>
+                <p class="confirmation-subtitle">Esta ação não pode ser desfeita. O documento será salvo como concluído.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="secondary-btn" id="cancel-finish-btn">Cancelar</button>
+                <button class="success-btn" id="confirm-finish-btn">Sim, Finalizar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quill.js CDN -->
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    <script src="../js/config.js"></script>
+    <script type="module" src="../js/firebase-electron.js"></script>
+    <script type="module" src="../js/transcription.js"></script>
+    <script type="module" src="../js/database.js"></script>
+    <script type="module">
+        import { getTemplate } from '../js/templates.js';
+        
+        // Get parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const inquiryId = urlParams.get('inquiry');
+        const hearingId = urlParams.get('hearing');
+        
+        // Global variables
+        let quill;
+        let transcriptionService;
+        let databaseService;
+        let isTranscribing = false;
+        let hearingData = null;
+        
+        // DOM Elements
+        const backBtn = document.getElementById('back-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const startTranscriptionBtn = document.getElementById('start-transcription-btn');
+        const stopTranscriptionBtn = document.getElementById('stop-transcription-btn');
+        const enhanceTextBtn = document.getElementById('enhance-text-btn');
+        const transcriptionStatus = document.getElementById('transcription-status');
+        const aiStatus = document.getElementById('ai-status');
+        const saveBtn = document.getElementById('save-btn');
+        const saveAndFinishBtn = document.getElementById('save-and-finish-btn');
+        const loadingModal = document.getElementById('loading-modal');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const closeConfirmationModal = document.getElementById('close-confirmation-modal');
+        const cancelFinishBtn = document.getElementById('cancel-finish-btn');
+        const confirmFinishBtn = document.getElementById('confirm-finish-btn');
+
+        // Initialize page
+        async function initializePage() {
+            if (!inquiryId || !hearingId) {
+                alert('Parâmetros da oitiva não encontrados');
+                window.location.href = 'dashboard-simple.html';
+                return;
+            }
+
+            // Show loading
+            loadingModal.style.display = 'flex';
+
+            try {
+                // Load hearing data
+                await loadHearingData();
+                
+                // Initialize Quill editor
+                await initializeEditor();
+                
+                // Initialize database service
+                await initializeDatabase();
+                
+                // Initialize transcription service
+                await initializeTranscription();
+                
+                // Load existing content if any
+                await loadExistingContent();
+                
+            } catch (error) {
+                console.error('Erro ao inicializar página:', error);
+                alert('Erro ao carregar a página. Tente novamente.');
+                window.location.href = `sindicancia-detalhes.html?id=${inquiryId}`;
+            } finally {
+                loadingModal.style.display = 'none';
+            }
+        }
+
+        // Initialize database service
+        async function initializeDatabase() {
+            try {
+                if (window.Firebase && window.Firebase.AuthService) {
+                    const authService = window.Firebase.AuthService;
+                    if (window.DatabaseService) {
+                        databaseService = new window.DatabaseService(authService);
+                        console.log('Serviço de banco de dados inicializado');
+                    } else {
+                        throw new Error('DatabaseService não disponível');
+                    }
+                } else {
+                    throw new Error('Firebase AuthService não disponível');
+                }
+            } catch (error) {
+                console.warn('Serviço de banco não disponível:', error);
+                databaseService = null;
+            }
+        }
+
+        // Load hearing data
+        async function loadHearingData() {
+            try {
+                if (databaseService) {
+                    // Try to load from Firebase
+                    const result = await databaseService.getHearing(inquiryId, hearingId);
+                    if (result.success) {
+                        hearingData = result.data;
+                        updateHearingInfo(hearingData);
+                        return;
+                    } else {
+                        console.warn('Erro ao carregar oitiva do banco:', result.error);
+                    }
+                }
+                
+                // Fallback to simulated data
+                hearingData = getSimulatedHearingData(hearingId);
+                updateHearingInfo(hearingData);
+                
+            } catch (error) {
+                console.error('Erro ao carregar dados da oitiva:', error);
+                hearingData = getSimulatedHearingData(hearingId);
+                updateHearingInfo(hearingData);
+            }
+        }
+
+        // Update hearing info in the UI
+        function updateHearingInfo(data) {
+            document.getElementById('hearing-title').textContent = `Oitiva - ${data.nomeTestemunha || data.witnessName}`;
+            document.getElementById('witness-info').textContent = 
+                `${data.postoGraduacao || data.witnessRank} ${data.nomeTestemunha || data.witnessName} - ${data.unidade || data.witnessUnit || 'Unidade não informada'}`;
+            
+            let displayDate = '';
+            if (data.dataOitiva) {
+                // Firebase timestamp
+                const date = data.dataOitiva.toDate ? data.dataOitiva.toDate() : new Date(data.dataOitiva);
+                displayDate = date.toLocaleDateString('pt-BR');
+            } else if (data.date) {
+                // Simulated data
+                displayDate = new Date(data.date).toLocaleDateString('pt-BR');
+            }
+            
+            document.getElementById('hearing-datetime').textContent = 
+                `Data: ${displayDate} às ${data.horario || data.time}`;
+        }
+
+        // Get simulated hearing data
+        function getSimulatedHearingData(id) {
+            const hearings = {
+                'hearing1': {
+                    tipoOitiva: 'testemunha',
+                    nomeTestemunha: 'João Silva',
+                    witnessName: 'João Silva',
+                    postoGraduacao: 'Cabo',
+                    witnessRank: 'Cabo',
+                    unidade: '1º BPM',
+                    witnessUnit: '1º BPM',
+                    date: '2025-08-25',
+                    time: '14:00'
+                },
+                'hearing2': {
+                    tipoOitiva: 'sindicado',
+                    nomeTestemunha: 'Maria Santos',
+                    witnessName: 'Maria Santos',
+                    postoGraduacao: 'Soldado',
+                    witnessRank: 'Soldado',
+                    unidade: '2º BPM',
+                    witnessUnit: '2º BPM',
+                    date: '2025-08-26',
+                    time: '10:00'
+                }
+            };
+            return hearings[id] || {
+                tipoOitiva: 'testemunha',
+                nomeTestemunha: 'Testemunha não encontrada',
+                witnessName: 'Testemunha não encontrada',
+                postoGraduacao: '',
+                witnessRank: '',
+                unidade: '',
+                witnessUnit: '',
+                date: new Date().toISOString().split('T')[0],
+                time: '00:00'
+            };
+        }
+
+        // Initialize Quill editor
+        async function initializeEditor() {
+            const toolbarOptions = [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'indent': '-1'}, { 'indent': '+1' }],
+                [{ 'align': [] }],
+                ['clean']
+            ];
+
+            quill = new Quill('#editor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: toolbarOptions
+                },
+                placeholder: 'Inicie a redação do termo de oitiva...'
+            });
+
+            // Insert initial template
+            insertInitialTemplate();
+        }
+
+        // Insert initial template based on hearing type
+        function insertInitialTemplate() {
+            if (!hearingData) {
+                console.warn('Hearing data not loaded yet, using default template');
+                insertDefaultTemplate();
+                return;
+            }
+
+            const hearingType = hearingData.tipoOitiva || 'testemunha'; // Default to testemunha if not specified
+            
+            // Prepare data for template
+            const templateData = {
+                numeroProcesso: inquiryId,
+                inquiryId: inquiryId,
+                nomeTestemunha: hearingData.nomeTestemunha || hearingData.witnessName,
+                postoGraduacao: hearingData.postoGraduacao || hearingData.witnessRank,
+                unidade: hearingData.unidade || hearingData.witnessUnit
+            };
+
+            try {
+                // Get the appropriate template
+                const template = getTemplate(hearingType, templateData);
+                
+                // Insert the template text into Quill editor
+                quill.setText(template);
+                
+                // Position cursor after first "PERGUNTADO"
+                const text = quill.getText();
+                const firstQuestionIndex = text.indexOf('PERGUNTADO');
+                if (firstQuestionIndex !== -1) {
+                    // Find the end of "PERGUNTADO sobre" line and position cursor there
+                    const lineEnd = text.indexOf('RESPONDEU:', firstQuestionIndex);
+                    if (lineEnd !== -1) {
+                        const responseStart = lineEnd + 'RESPONDEU: '.length;
+                        quill.setSelection(responseStart, 0);
+                    } else {
+                        quill.setSelection(firstQuestionIndex + 'PERGUNTADO '.length, 0);
+                    }
+                }
+                
+                console.log(`✅ Template ${hearingType} carregado com sucesso`);
+                
+            } catch (error) {
+                console.error('Erro ao carregar template:', error);
+                // Fallback to default template
+                insertDefaultTemplate();
+            }
+        }
+
+        // Fallback template function
+        function insertDefaultTemplate() {
+            const currentDate = new Date().toLocaleDateString('pt-BR');
+            const currentTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            
+            const template = `
+TERMO DE OITIVA
+
+Sindicância: ${inquiryId.toUpperCase()}
+Data: ${currentDate}
+Horário: ${currentTime}
+
+TESTEMUNHA/SINDICADO:
+Nome: ${hearingData?.postoGraduacao || ''} ${hearingData?.nomeTestemunha || hearingData?.witnessName || ''}
+Unidade: ${hearingData?.unidade || hearingData?.witnessUnit || ''}
+
+─────────────────────────────────────────────
+
+PERGUNTADO: 
+
+RESPOSTA: 
+
+─────────────────────────────────────────────
+
+PERGUNTADO: 
+
+RESPOSTA: 
+
+─────────────────────────────────────────────
+
+PERGUNTADO: 
+
+RESPOSTA: 
+
+─────────────────────────────────────────────
+
+Nada mais havendo a declarar, deu-se por encerrada a presente oitiva, sendo este termo lido e assinado.
+
+_________________________________
+Sindicante
+
+_________________________________
+Testemunha/Sindicado
+            `.trim();
+
+            quill.setText(template);
+            
+            // Position cursor after first "PERGUNTADO:"
+            const text = quill.getText();
+            const firstQuestionIndex = text.indexOf('PERGUNTADO: ') + 'PERGUNTADO: '.length;
+            quill.setSelection(firstQuestionIndex, 0);
+        }
+
+        // Initialize transcription service
+        async function initializeTranscription() {
+            try {
+                // Use OpenAI Transcription Service (Whisper + GPT-4)
+                if (window.OpenAITranscriptionService) {
+                    transcriptionService = new window.OpenAITranscriptionService();
+                    
+                    // Set API key from environment if available
+                    if (window.OPENAI_API_KEY) {
+                        transcriptionService.setApiKey(window.OPENAI_API_KEY);
+                    }
+                    
+                    console.log('🤖 OpenAI Transcription Service (Whisper + GPT-4) inicializado');
+                    
+                    // Update UI to reflect OpenAI capabilities
+                    startTranscriptionBtn.textContent = '🎤 Iniciar Transcrição (OpenAI Whisper + GPT-4)';
+                    
+                } else if (window.TranscriptionService) {
+                    transcriptionService = new window.TranscriptionService();
+                    console.log('Serviço de transcrição padrão inicializado');
+                } else {
+                    throw new Error('Nenhum serviço de transcrição disponível');
+                }
+            } catch (error) {
+                console.warn('Serviço de transcrição não disponível:', error);
+                // Disable transcription buttons
+                startTranscriptionBtn.disabled = true;
+                stopTranscriptionBtn.disabled = true;
+                startTranscriptionBtn.textContent = '🎤 Transcrição Indisponível';
+            }
+        }
+
+        // Load existing content
+        async function loadExistingContent() {
+            try {
+                if (databaseService && hearingData) {
+                    // Load existing term content if available
+                    if (hearingData.termoOitivaManual) {
+                        quill.root.innerHTML = hearingData.termoOitivaManual;
+                        console.log('Conteúdo existente carregado');
+                        return;
+                    }
+                    
+                    // Load AI transcription if available
+                    if (hearingData.transcricaoIA) {
+                        insertInitialTemplate();
+                        const transcriptionSection = `\n\n[TRANSCRIÇÃO IA ANTERIOR]\n${hearingData.transcricaoIA}\n\n`;
+                        quill.insertText(quill.getLength() - 1, transcriptionSection);
+                        console.log('Transcrição IA anterior carregada');
+                        return;
+                    }
+                }
+                
+                // Use template if no existing content
+                console.log('Usando template inicial baseado no tipo de oitiva');
+            } catch (error) {
+                console.error('Erro ao carregar conteúdo existente:', error);
+            }
+        }
+
+        // Event Listeners
+        backBtn.addEventListener('click', () => {
+            if (confirm('Deseja voltar? Alterações não salvas serão perdidas.')) {
+                window.location.href = `sindicancia-detalhes.html?id=${inquiryId}`;
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            if (confirm('Deseja fazer logout? Alterações não salvas serão perdidas.')) {
+                if (window.Firebase && window.Firebase.signOut) {
+                    try {
+                        await window.Firebase.signOut(window.firebaseAuth);
+                        window.location.href = 'login.html';
+                    } catch (error) {
+                        console.error('Erro no logout:', error);
+                        window.location.href = 'login.html';
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            }
+        });
+
+        // Transcription controls
+        startTranscriptionBtn.addEventListener('click', async () => {
+            if (!transcriptionService) return;
+            
+            try {
+                await startTranscription();
+            } catch (error) {
+                console.error('Erro ao iniciar transcrição:', error);
+                alert('Erro ao iniciar transcrição. Verifique as permissões do microfone.');
+            }
+        });
+
+        stopTranscriptionBtn.addEventListener('click', async () => {
+            if (!transcriptionService) return;
+            
+            try {
+                await stopTranscription();
+            } catch (error) {
+                console.error('Erro ao parar transcrição:', error);
+            }
+        });
+
+        enhanceTextBtn.addEventListener('click', async () => {
+            try {
+                const selection = quill.getSelection();
+                if (!selection || selection.length === 0) {
+                    alert('Por favor, selecione um texto para melhorar.');
+                    return;
+                }
+                
+                const selectedText = quill.getText(selection.index, selection.length);
+                if (!selectedText.trim()) {
+                    alert('Por favor, selecione um texto válido para melhorar.');
+                    return;
+                }
+                
+                console.log('🔄 Iniciando melhoria de texto selecionado:', selectedText.substring(0, 50) + '...');
+                
+                // Show AI processing indicator
+                aiStatus.style.display = 'block';
+                enhanceTextBtn.disabled = true;
+                enhanceTextBtn.textContent = '🧠 Processando com GPT-4...';
+                
+                // Add processing visual feedback
+                const processingIndicator = document.createElement('span');
+                processingIndicator.textContent = ' [🤖 GPT-4 processando...]';
+                processingIndicator.style.color = '#007acc';
+                processingIndicator.style.fontStyle = 'italic';
+                processingIndicator.id = 'processing-indicator';
+                
+                // Insert temporary indicator in the text
+                quill.insertText(selection.index + selection.length, ' [🤖 processando...]', { color: '#007acc', italic: true });
+                
+                const enhancedText = await enhanceTextWithAI(selectedText);
+                
+                // Remove processing indicator
+                const currentText = quill.getText();
+                const indicatorIndex = currentText.indexOf(' [🤖 processando...]');
+                if (indicatorIndex !== -1) {
+                    quill.deleteText(indicatorIndex, ' [🤖 processando...]'.length);
+                }
+                
+                // Replace selected text with enhanced version
+                const newSelection = quill.getSelection();
+                const textToReplace = quill.getText(selection.index, selection.length);
+                
+                quill.deleteText(selection.index, selection.length);
+                quill.insertText(selection.index, enhancedText);
+                quill.setSelection(selection.index, enhancedText.length);
+                
+                console.log('✅ Texto melhorado com sucesso!');
+                console.log('Original:', selectedText);
+                console.log('Melhorado:', enhancedText);
+                
+                // Show success feedback
+                const originalBtnText = enhanceTextBtn.textContent;
+                enhanceTextBtn.textContent = '✅ Texto Melhorado!';
+                enhanceTextBtn.style.backgroundColor = '#28a745';
+                
+                setTimeout(() => {
+                    enhanceTextBtn.style.backgroundColor = '';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Erro ao melhorar texto:', error);
+                
+                // Remove processing indicator if it exists
+                const currentText = quill.getText();
+                const indicatorIndex = currentText.indexOf(' [🤖 processando...]');
+                if (indicatorIndex !== -1) {
+                    quill.deleteText(indicatorIndex, ' [🤖 processando...]'.length);
+                }
+                
+                // Show user-friendly error message
+                let errorMessage = 'Erro ao processar texto com IA. ';
+                if (error.message.includes('API key')) {
+                    errorMessage += 'Verifique a configuração da chave OpenAI.';
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    errorMessage += 'Verifique sua conexão com a internet.';
+                } else {
+                    errorMessage += 'Tente novamente em alguns instantes.';
+                }
+                
+                alert(errorMessage);
+            } finally {
+                // Hide AI processing indicator
+                aiStatus.style.display = 'none';
+                enhanceTextBtn.disabled = false;
+                enhanceTextBtn.textContent = '🧠 Melhorar Texto Selecionado';
+            }
+        });
+
+        // Start transcription
+        async function startTranscription() {
+            if (isTranscribing) return;
+            
+            try {
+                // Test microphone availability first
+                console.log('Testing microphone availability...');
+                const micTest = await transcriptionService.testMicrophone();
+                
+                if (!micTest.success) {
+                    throw new Error(`Microphone test failed: ${micTest.error}`);
+                }
+                
+                console.log('Microphone test successful:', micTest);
+                
+                // Start transcription with callback
+                const result = await transcriptionService.startTranscription((transcriptionData) => {
+                    if (transcriptionData.isFinal && transcriptionData.text.trim()) {
+                        // Show temporary text processing indicator
+                        const tempIndicator = document.createElement('span');
+                        tempIndicator.textContent = ' [processando IA...]';
+                        tempIndicator.style.color = '#888';
+                        transcriptionStatus.appendChild(tempIndicator);
+                        
+                        // Process text with AI and insert
+                        insertTranscriptionText(transcriptionData.text).finally(() => {
+                            if (tempIndicator.parentNode) {
+                                tempIndicator.parentNode.removeChild(tempIndicator);
+                            }
+                        });
+                    } else if (!transcriptionData.isFinal && transcriptionData.text.trim()) {
+                        // Show interim results without AI processing
+                        console.log('Interim result:', transcriptionData.text);
+                    }
+                });
+                
+                if (result.success) {
+                    isTranscribing = true;
+                    startTranscriptionBtn.disabled = true;
+                    stopTranscriptionBtn.disabled = false;
+                    
+                    // Show enhanced status with method information
+                    const method = result.method || 'padrão';
+                    const statusText = method.includes('openai') || method.includes('whisper') ? 
+                        '🔴 Gravando com OpenAI Whisper + GPT-4...' : 
+                        '🔴 Gravando...';
+                    transcriptionStatus.innerHTML = `<span class="status-text recording">${statusText}</span>`;
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido ao iniciar transcrição');
+                }
+                
+            } catch (error) {
+                console.error('Erro ao iniciar transcrição:', error);
+                
+                // Provide more specific error messages
+                let errorMessage = 'Erro ao iniciar transcrição: ';
+                if (error.message.includes('No microphone found') || error.message.includes('No microphone devices found')) {
+                    errorMessage += 'Nenhum microfone encontrado. Verifique se um microfone está conectado e funcionando.';
+                } else if (error.message.includes('Permission denied') || error.message.includes('NotAllowed')) {
+                    errorMessage += 'Permissão negada. Permita o acesso ao microfone nas configurações do navegador.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                alert(errorMessage);
+                throw error;
+            }
+        }
+
+        // Stop transcription
+        async function stopTranscription() {
+            if (!isTranscribing) return;
+            
+            try {
+                const result = transcriptionService.stopTranscription();
+                
+                if (result.success) {
+                    isTranscribing = false;
+                    startTranscriptionBtn.disabled = false;
+                    stopTranscriptionBtn.disabled = true;
+                    transcriptionStatus.innerHTML = '<span class="status-text">Transcrição inativa</span>';
+                } else {
+                    console.warn('Aviso ao parar transcrição:', result.error);
+                    // Still update UI as transcription should be stopped
+                    isTranscribing = false;
+                    startTranscriptionBtn.disabled = false;
+                    stopTranscriptionBtn.disabled = true;
+                    transcriptionStatus.innerHTML = '<span class="status-text">Transcrição inativa</span>';
+                }
+                
+            } catch (error) {
+                console.error('Erro ao parar transcrição:', error);
+                // Still update UI
+                isTranscribing = false;
+                startTranscriptionBtn.disabled = false;
+                stopTranscriptionBtn.disabled = true;
+                transcriptionStatus.innerHTML = '<span class="status-text">Transcrição inativa</span>';
+            }
+        }
+
+        // Insert transcription text at cursor position (already enhanced by OpenAI)
+        async function insertTranscriptionText(text) {
+            try {
+                // Text is already processed by OpenAI Whisper + GPT-4, so use it directly
+                const range = quill.getSelection();
+                if (range) {
+                    quill.insertText(range.index, text + '\n\n');
+                    quill.setSelection(range.index + text.length + 2, 0);
+                } else {
+                    const length = quill.getLength();
+                    quill.insertText(length - 1, text + '\n\n');
+                    quill.setSelection(length + text.length + 1, 0);
+                }
+                
+                console.log('✅ Texto processado pela OpenAI inserido com sucesso');
+            } catch (error) {
+                console.error('Erro ao inserir texto:', error);
+                // Fallback insertion
+                const range = quill.getSelection();
+                if (range) {
+                    quill.insertText(range.index, text + ' ');
+                    quill.setSelection(range.index + text.length + 1, 0);
+                } else {
+                    const length = quill.getLength();
+                    quill.insertText(length - 1, text + ' ');
+                    quill.setSelection(length + text.length, 0);
+                }
+            }
+        }
+
+        // Enhanced AI Text Processing Function (using OpenAI directly)
+        async function enhanceTextWithAI(rawText) {
+            try {
+                // Use OpenAI service for text enhancement if available
+                if (transcriptionService && transcriptionService.enhanceSelectedText) {
+                    console.log('🔄 Using OpenAI GPT-4 for text enhancement...');
+                    return await transcriptionService.enhanceSelectedText(rawText);
+                }
+                
+                // Fallback local processing for other services
+                console.log('⚠️ Using fallback local text processing');
+                let enhancedText = rawText.trim();
+                
+                // Remove redundant words and filler sounds
+                enhancedText = removeFillersAndRedundancy(enhancedText);
+                
+                // Improve punctuation and capitalization
+                enhancedText = improvePunctuationAndCapitalization(enhancedText);
+                
+                // Fix common transcription errors
+                enhancedText = fixCommonTranscriptionErrors(enhancedText);
+                
+                return enhancedText;
+            } catch (error) {
+                console.error('Erro na melhoria do texto:', error);
+                // Return original text if enhancement fails
+                return rawText;
+            }
+        }
+
+        // Remove fillers and redundant words
+        function removeFillersAndRedundancy(text) {
+            const fillers = [
+                /\b(ã+h?|u+h?|e+h?)\b/gi,  // Remove "ããh", "uuh", "eeh"
+                /\b(né|tá|tipo|assim|sabe)\b/gi,  // Common Portuguese fillers
+                /\b(pois é|então|assim)\b/gi,     // More fillers
+                /\s+/g  // Multiple spaces
+            ];
+            
+            let cleaned = text;
+            fillers.forEach(filler => {
+                if (filler.toString().includes('\\s+')) {
+                    cleaned = cleaned.replace(filler, ' ');
+                } else {
+                    cleaned = cleaned.replace(filler, '');
+                }
+            });
+            
+            return cleaned.trim();
+        }
+
+        // Improve punctuation and capitalization
+        function improvePunctuationAndCapitalization(text) {
+            let improved = text;
+            
+            // Capitalize first letter
+            improved = improved.charAt(0).toUpperCase() + improved.slice(1);
+            
+            // Add periods at the end if missing
+            if (!/[.!?]$/.test(improved)) {
+                improved += '.';
+            }
+            
+            // Capitalize after periods
+            improved = improved.replace(/\.\s+([a-z])/g, '. $1'.toUpperCase());
+            
+            // Fix common punctuation issues
+            improved = improved.replace(/\s+([,.!?])/g, '$1');  // Remove space before punctuation
+            improved = improved.replace(/([,.!?])([A-Za-z])/g, '$1 $2');  // Add space after punctuation
+            
+            return improved;
+        }
+
+        // Fix common transcription errors
+        function fixCommonTranscriptionErrors(text) {
+            const corrections = {
+                // Military/Police terms
+                'pm': 'PM',
+                'bpm': 'BPM',
+                'cgpm': 'CGPM',
+                'gocg': 'GOCG',
+                'sindic\u00e2ncia': 'sindicância',
+                
+                // Common Portuguese corrections
+                'sertão': 'sertão',
+                'não': 'não',
+                'então': 'então',
+                'informação': 'informação',
+                'investigação': 'investigação',
+                
+                // Common speech-to-text errors
+                'com certeza': 'com certeza',
+                'de repente': 'de repente',
+                'por exemplo': 'por exemplo'
+            };
+            
+            let corrected = text;
+            Object.keys(corrections).forEach(error => {
+                const regex = new RegExp(`\\b${error}\\b`, 'gi');
+                corrected = corrected.replace(regex, corrections[error]);
+            });
+            
+            return corrected;
+        }
+
+        // Save content
+        saveBtn.addEventListener('click', async () => {
+            try {
+                const content = quill.root.innerHTML;
+                const plainText = quill.getText();
+                
+                // Save to Firebase if available
+                if (databaseService) {
+                    const updateData = {
+                        termoOitivaManual: content,
+                        termoOitivaTexto: plainText,
+                        ultimaAtualizacao: new Date()
+                    };
+                    
+                    const result = await databaseService.updateHearing(inquiryId, hearingId, updateData);
+                    if (result.success) {
+                        console.log('Conteúdo salvo no Firebase com sucesso');
+                    } else {
+                        console.warn('Erro ao salvar no Firebase:', result.error);
+                        // Continue with local save indication
+                    }
+                } else {
+                    console.log('Salvando localmente (Firebase não disponível):', content);
+                }
+                
+                // Show success message
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = '✅ Salvo!';
+                saveBtn.classList.add('saved');
+                
+                setTimeout(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.classList.remove('saved');
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar. Tente novamente.');
+            }
+        });
+
+        // Save and finish
+        saveAndFinishBtn.addEventListener('click', () => {
+            confirmationModal.style.display = 'flex';
+        });
+
+        // Confirmation modal events
+        closeConfirmationModal.addEventListener('click', () => {
+            confirmationModal.style.display = 'none';
+        });
+
+        cancelFinishBtn.addEventListener('click', () => {
+            confirmationModal.style.display = 'none';
+        });
+
+        confirmFinishBtn.addEventListener('click', async () => {
+            try {
+                const content = quill.root.innerHTML;
+                const plainText = quill.getText();
+                
+                // Save content and mark as finished
+                if (databaseService) {
+                    const updateData = {
+                        termoOitivaManual: content,
+                        termoOitivaTexto: plainText,
+                        status: 'Concluída',
+                        dataFinalizacao: new Date(),
+                        ultimaAtualizacao: new Date()
+                    };
+                    
+                    const result = await databaseService.updateHearing(inquiryId, hearingId, updateData);
+                    if (result.success) {
+                        alert('Oitiva finalizada e salva no banco de dados com sucesso!');
+                    } else {
+                        console.warn('Erro ao finalizar no Firebase:', result.error);
+                        alert('Oitiva finalizada localmente. Verificar conexão com banco de dados.');
+                    }
+                } else {
+                    console.log('Finalizando oitiva localmente:', content);
+                    alert('Oitiva finalizada localmente (Firebase não disponível)!');
+                }
+                
+                window.location.href = `sindicancia-detalhes.html?id=${inquiryId}`;
+                
+            } catch (error) {
+                console.error('Erro ao finalizar:', error);
+                alert('Erro ao finalizar oitiva. Tente novamente.');
+            }
+        });
+
+        // Close confirmation modal when clicking outside
+        confirmationModal.addEventListener('click', (e) => {
+            if (e.target === confirmationModal) {
+                confirmationModal.style.display = 'none';
+            }
+        });
+
+        // Auto-save every 30 seconds
+        setInterval(async () => {
+            if (quill && quill.getText().trim().length > 0) {
+                try {
+                    const content = quill.root.innerHTML;
+                    const plainText = quill.getText();
+                    
+                    if (databaseService && hearingData) {
+                        const updateData = {
+                            termoOitivaManual: content,
+                            termoOitivaTexto: plainText,
+                            ultimaAtualizacao: new Date()
+                        };
+                        
+                        const result = await databaseService.updateHearing(inquiryId, hearingId, updateData);
+                        if (result.success) {
+                            console.log('🔄 Auto-save realizado com sucesso');
+                        } else {
+                            console.warn('⚠️ Erro no auto-save Firebase:', result.error);
+                        }
+                    } else {
+                        console.log('🔄 Auto-save local:', content.substring(0, 100) + '...');
+                    }
+                } catch (error) {
+                    console.error('❌ Erro no auto-save:', error);
+                }
+            }
+        }, 30000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+S to save
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                saveBtn.click();
+            }
+            
+            // Ctrl+Enter to start/stop transcription
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                if (isTranscribing) {
+                    stopTranscriptionBtn.click();
+                } else {
+                    startTranscriptionBtn.click();
+                }
+            }
+        });
+
+        // Prevent accidental page refresh
+        window.addEventListener('beforeunload', (e) => {
+            if (quill && quill.getText().trim().length > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // Initialize page when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+        console.log('🎤 Página de realização de oitiva carregada com sucesso!');
+    </script>
+</body>
+</html>

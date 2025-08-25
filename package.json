@@ -1,0 +1,27 @@
+{
+  "name": "sind-gocg-web",
+  "version": "1.0.0",
+  "description": "Web application for managing military inquiry hearings",
+  "main": "public/index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 3000 --directory public",
+    "start": "python3 -m http.server 8080 --directory public",
+    "build": "echo 'Build complete - ready for deployment'",
+    "preview": "npm run build && npm run start"
+  },
+  "keywords": [
+    "web",
+    "firebase",
+    "military",
+    "inquiry",
+    "transcription",
+    "vercel",
+    "serverless"
+  ],
+  "author": "Sindicante",
+  "license": "MIT",
+  "dependencies": {
+    "uuid": "^9.0.1",
+    "axios": "^1.6.0"
+  }
+}

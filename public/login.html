@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIND-GOCG - Login</title>
+    <link rel="stylesheet" href="../css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="header">
+                <img src="../../assets/brasao.png" alt="Brasão" class="logo">
+                <h1>SIND-GOCG</h1>
+                <p>Sistema de Gerenciamento de Sindicâncias</p>
+            </div>
+            
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Senha:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="login-btn">Entrar</button>
+                
+                <div id="error-message" class="error-message" style="display: none;"></div>
+                <div id="loading" class="loading" style="display: none;">Autenticando...</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase CDN v8 compat -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    
+    <!-- Firebase Config -->
+    <script src="../js/firebase-electron.js"></script>
+    <script type="module">
+        // Função para aguardar Firebase carregar
+        function waitForFirebase() {
+            return new Promise((resolve) => {
+                const checkFirebase = () => {
+                    if (window.Firebase && window.Firebase.onAuthStateChanged && window.firebaseAuth) {
+                        resolve();
+                    } else {
+                        setTimeout(checkFirebase, 100);
+                    }
+                };
+                checkFirebase();
+            });
+        }
+        
+        // Aguardar Firebase carregar antes de inicializar
+        waitForFirebase().then(() => {
+            // AuthService para Web/Serverless
+            class AuthService {
+                constructor() {
+                    this.currentUser = null;
+                    this.init();
+                }
+
+                init() {
+                    window.Firebase.onAuthStateChanged(window.firebaseAuth, (user) => {
+                        this.currentUser = user;
+                        if (user && window.location.pathname.includes('login.html')) {
+                            this.navigateTo('dashboard');
+                        } else if (!user && !window.location.pathname.includes('login.html')) {
+                            this.navigateTo('login');
+                        }
+                    });
+                }
+
+                async login(email, password) {
+                    try {
+                        const userCredential = await window.Firebase.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+                        return { success: true, user: userCredential.user };
+                    } catch (error) {
+                        console.error('Login error:', error);
+                        return { success: false, error: this.getErrorMessage(error.code) };
+                    }
+                }
+
+                async logout() {
+                    try {
+                        await window.Firebase.signOut(window.firebaseAuth);
+                        this.navigateTo('login');
+                        return { success: true };
+                    } catch (error) {
+                        return { success: false, error: error.message };
+                    }
+                }
+
+                navigateTo(page) {
+                    // Para ambiente web, usar window.location ao invés de ipcRenderer
+                    if (typeof window !== 'undefined') {
+                        if (page === 'dashboard') {
+                            window.location.href = 'dashboard-simple.html';
+                        } else if (page === 'login') {
+                            window.location.href = 'login.html';
+                        }
+                    }
+                }
+
+                getCurrentUser() {
+                    return this.currentUser;
+                }
+
+                isAuthenticated() {
+                    return this.currentUser !== null;
+                }
+
+                getErrorMessage(errorCode) {
+                    switch (errorCode) {
+                        case 'auth/user-not-found':
+                            return 'Usuário não encontrado';
+                        case 'auth/wrong-password':
+                            return 'Senha incorreta';
+                        case 'auth/invalid-email':
+                            return 'Email inválido';
+                        case 'auth/user-disabled':
+                            return 'Usuário desabilitado';
+                        case 'auth/too-many-requests':
+                            return 'Muitas tentativas. Tente novamente mais tarde';
+                        default:
+                            return 'Erro na autenticação: ' + errorCode;
+                    }
+                }
+            }
+
+            const authService = new AuthService();
+            const loginForm = document.getElementById('loginForm');
+            const errorMessage = document.getElementById('error-message');
+            const loading = document.getElementById('loading');
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                loading.style.display = 'block';
+                errorMessage.style.display = 'none';
+                
+                const result = await authService.login(email, password);
+                
+                loading.style.display = 'none';
+                
+                if (result.success) {
+                    console.log('Login realizado com sucesso!');
+                } else {
+                    errorMessage.textContent = result.error;
+                    errorMessage.style.display = 'block';
+                }
+            });
+
+        }); // Fim do waitForFirebase().then()
+    </script>
+</body>
+</html>

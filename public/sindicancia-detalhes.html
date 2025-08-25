@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIND-GOCG - Detalhes da Sindicância</title>
+    <link rel="stylesheet" href="../css/sindicancia-detalhes.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-left">
+                <img src="../../assets/brasao.png" alt="Brasão" class="logo">
+                <h1>SIND-GOCG</h1>
+            </div>
+            <div class="header-right">
+                <button id="back-btn" class="back-btn">← Voltar ao Dashboard</button>
+                <span id="user-email" class="user-email">sindicante@gocg.com</span>
+                <button id="logout-btn" class="logout-btn">Sair</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="inquiry-header">
+                <h2 id="inquiry-title">Carregando...</h2>
+                <p id="inquiry-description">Carregando descrição...</p>
+            </div>
+
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="documentos">Documentação do Processo</button>
+                    <button class="tab-btn" data-tab="oitivas">Gerenciamento de Oitivas</button>
+                </div>
+
+                <div class="tab-content">
+                    <!-- Aba Documentos -->
+                    <div id="documentos-tab" class="tab-pane active">
+                        <div class="section-header">
+                            <h3>Documentos da Sindicância</h3>
+                            <button id="add-document-btn" class="primary-btn">Adicionar Documento</button>
+                        </div>
+
+                        <div class="documents-grid" id="documents-grid">
+                            <div class="empty-state">
+                                <p>Nenhum documento adicionado ainda</p>
+                                <p class="empty-state-subtitle">Clique em "Adicionar Documento" para fazer upload de arquivos</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aba Oitivas -->
+                    <div id="oitivas-tab" class="tab-pane">
+                        <div class="section-header">
+                            <h3>Oitivas da Sindicância</h3>
+                            <button id="add-hearing-btn" class="primary-btn">Agendar Nova Oitiva</button>
+                        </div>
+
+                        <div class="hearings-grid" id="hearings-grid">
+                            <div class="empty-state">
+                                <p>Nenhuma oitiva agendada ainda</p>
+                                <p class="empty-state-subtitle">Clique em "Agendar Nova Oitiva" para criar uma nova oitiva</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Adding Document -->
+    <div id="add-document-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Adicionar Documento</h3>
+                <span class="close" id="close-document-modal">&times;</span>
+            </div>
+            <form id="add-document-form" class="modal-form">
+                <div class="form-group">
+                    <label for="document-name">Nome do Documento:</label>
+                    <input type="text" id="document-name" name="document-name" required placeholder="Ex: Portaria de Instauração">
+                </div>
+                
+                <div class="form-group">
+                    <label for="document-file">Arquivo:</label>
+                    <input type="file" id="document-file" name="document-file" accept=".pdf,.doc,.docx,.jpg,.png" required>
+                    <small>Formatos aceitos: PDF, DOC, DOCX, JPG, PNG</small>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn" id="cancel-document-btn">Cancelar</button>
+                    <button type="submit" class="primary-btn">Adicionar Documento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Adding Hearing -->
+    <div id="add-hearing-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Agendar Nova Oitiva</h3>
+                <span class="close" id="close-hearing-modal">&times;</span>
+            </div>
+            <form id="add-hearing-form" class="modal-form">
+                <div class="form-group">
+                    <label for="hearing-type">Tipo de Oitiva:</label>
+                    <select id="hearing-type" name="hearing-type" required>
+                        <option value="">Selecione o tipo de oitiva</option>
+                        <option value="testemunha">Testemunha</option>
+                        <option value="sindicado">Sindicado</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="witness-name">Nome da Testemunha/Sindicado:</label>
+                    <input type="text" id="witness-name" name="witness-name" required placeholder="Ex: João Silva">
+                </div>
+                
+                <div class="form-group">
+                    <label for="witness-rank">Posto/Graduação:</label>
+                    <input type="text" id="witness-rank" name="witness-rank" required placeholder="Ex: Cabo">
+                </div>
+
+                <div class="form-group">
+                    <label for="witness-unit">Unidade:</label>
+                    <input type="text" id="witness-unit" name="witness-unit" required placeholder="Ex: 1º BPM">
+                </div>
+                
+                <div class="form-group">
+                    <label for="hearing-date">Data da Oitiva:</label>
+                    <input type="date" id="hearing-date" name="hearing-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="hearing-time">Horário:</label>
+                    <input type="time" id="hearing-time" name="hearing-time" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="official-document">Ofício de Convocação (opcional):</label>
+                    <input type="file" id="official-document" name="official-document" accept=".pdf,.doc,.docx">
+                    <small>Formato aceito: PDF, DOC, DOCX</small>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn" id="cancel-hearing-btn">Cancelar</button>
+                    <button type="submit" class="primary-btn">Agendar Oitiva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="../js/firebase-electron.js"></script>
+    <script type="module" src="../js/database.js"></script>
+    <script>
+        
+        
+        // Get inquiry ID from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const inquiryId = urlParams.get('id');
+        
+        // Global variables
+        let databaseService;
+        
+        // DOM Elements
+        const backBtn = document.getElementById('back-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+        const addDocumentBtn = document.getElementById('add-document-btn');
+        const addHearingBtn = document.getElementById('add-hearing-btn');
+        const addDocumentModal = document.getElementById('add-document-modal');
+        const addHearingModal = document.getElementById('add-hearing-modal');
+        const closeDocumentModal = document.getElementById('close-document-modal');
+        const closeHearingModal = document.getElementById('close-hearing-modal');
+        const cancelDocumentBtn = document.getElementById('cancel-document-btn');
+        const cancelHearingBtn = document.getElementById('cancel-hearing-btn');
+        const addDocumentForm = document.getElementById('add-document-form');
+        const addHearingForm = document.getElementById('add-hearing-form');
+
+        // Initialize page
+        async function initializePage() {
+            if (!inquiryId) {
+                alert('ID da sindicância não encontrado');
+                window.location.href = 'dashboard-simple.html';
+                return;
+            }
+
+            // Initialize database service
+            await initializeDatabase();
+            
+            // Load inquiry data
+            loadInquiryData();
+            loadDocuments();
+            loadHearings();
+        }
+
+        // Initialize database service
+        async function initializeDatabase() {
+            try {
+                if (window.Firebase && window.Firebase.AuthService) {
+                    const authService = window.Firebase.AuthService;
+                    if (window.DatabaseService) {
+                        databaseService = new window.DatabaseService(authService);
+                        console.log('Serviço de banco de dados inicializado');
+                    } else {
+                        throw new Error('DatabaseService não disponível');
+                    }
+                } else {
+                    throw new Error('Firebase AuthService não disponível');
+                }
+            } catch (error) {
+                console.warn('Serviço de banco não disponível:', error);
+                databaseService = null;
+            }
+        }
+
+        // Load inquiry data
+        function loadInquiryData() {
+            const inquiryData = getSimulatedInquiryData(inquiryId);
+            document.getElementById('inquiry-title').textContent = inquiryData.title;
+            document.getElementById('inquiry-description').textContent = inquiryData.description;
+        }
+
+        // Get simulated inquiry data
+        function getSimulatedInquiryData(id) {
+            const inquiries = {
+                'inquiry1': {
+                    title: 'Sindicância 001/2025',
+                    description: 'Sumição de EPI - Colete Balístico - Investigação inicial sobre o desaparecimento de equipamento de proteção individual'
+                },
+                'inquiry2': {
+                    title: 'Sindicância 002/2025',
+                    description: 'Procedimento Administrativo - Falta injustificada - Apuração de ausência não autorizada'
+                }
+            };
+            return inquiries[id] || { title: 'Sindicância não encontrada', description: 'Dados não disponíveis' };
+        }
+
+        // Tab functionality
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and panes
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabPanes.forEach(p => p.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding pane
+                btn.classList.add('active');
+                document.getElementById(`${targetTab}-tab`).classList.add('active');
+            });
+        });
+
+        // Event Listeners
+        backBtn.addEventListener('click', () => {
+            window.location.href = 'dashboard-simple.html';
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            if (confirm('Deseja fazer logout?')) {
+                if (window.Firebase && window.Firebase.signOut) {
+                    try {
+                        await window.Firebase.signOut(window.firebaseAuth);
+                        window.location.href = 'login.html';
+                    } catch (error) {
+                        console.error('Erro no logout:', error);
+                        window.location.href = 'login.html';
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            }
+        });
+
+        // Document management
+        addDocumentBtn.addEventListener('click', () => {
+            addDocumentModal.style.display = 'flex';
+        });
+
+        closeDocumentModal.addEventListener('click', () => {
+            addDocumentModal.style.display = 'none';
+        });
+
+        cancelDocumentBtn.addEventListener('click', () => {
+            addDocumentModal.style.display = 'none';
+        });
+
+        addDocumentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const documentName = document.getElementById('document-name').value;
+            const documentFile = document.getElementById('document-file').files[0];
+            
+            if (documentFile) {
+                // Here we would upload to Firebase Storage
+                // For now, simulate success
+                alert(`Documento "${documentName}" adicionado com sucesso!`);
+                
+                addDocumentModal.style.display = 'none';
+                addDocumentForm.reset();
+                loadDocuments(); // Refresh document list
+            }
+        });
+
+        // Hearing management
+        addHearingBtn.addEventListener('click', () => {
+            addHearingModal.style.display = 'flex';
+        });
+
+        closeHearingModal.addEventListener('click', () => {
+            addHearingModal.style.display = 'none';
+        });
+
+        cancelHearingBtn.addEventListener('click', () => {
+            addHearingModal.style.display = 'none';
+        });
+
+        addHearingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const hearingType = document.getElementById('hearing-type').value;
+            const witnessName = document.getElementById('witness-name').value;
+            const witnessRank = document.getElementById('witness-rank').value;
+            const witnessUnit = document.getElementById('witness-unit').value;
+            const hearingDate = document.getElementById('hearing-date').value;
+            const hearingTime = document.getElementById('hearing-time').value;
+            const officialDocument = document.getElementById('official-document').files[0];
+            
+            try {
+                if (databaseService) {
+                    // Prepare hearing data for Firebase
+                    const hearingData = {
+                        tipoOitiva: hearingType,
+                        nomeTestemunha: witnessName,
+                        postoGraduacao: witnessRank,
+                        unidade: witnessUnit,
+                        dataOitiva: new Date(`${hearingDate}T${hearingTime}`),
+                        horario: hearingTime,
+                        status: 'Agendada',
+                        dataAgendamento: new Date()
+                    };
+                    
+                    // Upload official document if provided
+                    if (officialDocument) {
+                        const uploadPath = `oficios/${inquiryId}/${Date.now()}_${officialDocument.name}`;
+                        const uploadResult = await databaseService.uploadDocument(officialDocument, uploadPath);
+                        
+                        if (uploadResult.success) {
+                            hearingData.oficioConvocacao = uploadResult.url;
+                        } else {
+                            console.warn('Erro ao fazer upload do ofício:', uploadResult.error);
+                        }
+                    }
+                    
+                    // Save hearing to Firebase
+                    const result = await databaseService.createHearing(inquiryId, hearingData);
+                    
+                    if (result.success) {
+                        alert(`Oitiva para ${witnessName} agendada com sucesso!`);
+                    } else {
+                        console.warn('Erro ao salvar oitiva no Firebase:', result.error);
+                        alert(`Oitiva agendada localmente (erro no banco: ${result.error})`);
+                    }
+                } else {
+                    // Fallback simulation
+                    alert(`Oitiva para ${witnessName} agendada para ${hearingDate} às ${hearingTime} (modo simulado)`);
+                }
+                
+                addHearingModal.style.display = 'none';
+                addHearingForm.reset();
+                await loadHearings(); // Refresh hearings list
+                
+            } catch (error) {
+                console.error('Erro ao agendar oitiva:', error);
+                alert(`Erro ao agendar oitiva: ${error.message}`);
+            }
+        });
+
+        // Close modals when clicking outside
+        addDocumentModal.addEventListener('click', (e) => {
+            if (e.target === addDocumentModal) {
+                addDocumentModal.style.display = 'none';
+            }
+        });
+
+        addHearingModal.addEventListener('click', (e) => {
+            if (e.target === addHearingModal) {
+                addHearingModal.style.display = 'none';
+            }
+        });
+
+        // Load documents (simulated)
+        function loadDocuments() {
+            const documentsGrid = document.getElementById('documents-grid');
+            
+            // Simulated documents
+            const documents = [
+                { id: 'doc1', name: 'Portaria de Instauração', url: '#', uploadDate: '2025-08-24' },
+                { id: 'doc2', name: 'Auto de Apreensão', url: '#', uploadDate: '2025-08-23' }
+            ];
+
+            if (documents.length === 0) {
+                documentsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <p>Nenhum documento adicionado ainda</p>
+                        <p class="empty-state-subtitle">Clique em "Adicionar Documento" para fazer upload de arquivos</p>
+                    </div>
+                `;
+            } else {
+                documentsGrid.innerHTML = documents.map(doc => `
+                    <div class="document-card">
+                        <div class="document-icon">📄</div>
+                        <div class="document-info">
+                            <h4>${doc.name}</h4>
+                            <p class="document-date">Adicionado em ${new Date(doc.uploadDate).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <div class="document-actions">
+                            <button class="secondary-btn" onclick="downloadDocument('${doc.id}')">Download</button>
+                            <button class="danger-btn" onclick="removeDocument('${doc.id}')">Remover</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Load hearings
+        async function loadHearings() {
+            const hearingsGrid = document.getElementById('hearings-grid');
+            
+            try {
+                let hearings = [];
+                
+                if (databaseService) {
+                    // Try to load from Firebase
+                    const result = await databaseService.getHearings(inquiryId);
+                    if (result.success) {
+                        hearings = result.data.map(hearing => ({
+                            id: hearing.id,
+                            witnessName: hearing.nomeTestemunha,
+                            witnessRank: hearing.postoGraduacao,
+                            date: hearing.dataOitiva ? (hearing.dataOitiva.toDate ? hearing.dataOitiva.toDate() : new Date(hearing.dataOitiva)) : new Date(),
+                            time: hearing.horario || '00:00',
+                            status: hearing.status || 'Agendada'
+                        }));
+                        console.log('Oitivas carregadas do Firebase:', hearings.length);
+                    } else {
+                        console.warn('Erro ao carregar oitivas do Firebase:', result.error);
+                    }
+                }
+                
+                // Fallback to simulated hearings if no Firebase data
+                if (hearings.length === 0) {
+                    hearings = [
+                        { 
+                            id: 'hearing1',
+                            tipoOitiva: 'testemunha',
+                            witnessName: 'João Silva', 
+                            witnessRank: 'Cabo',
+                            date: new Date('2025-08-25'), 
+                            time: '14:00',
+                            status: 'Agendada'
+                        },
+                        { 
+                            id: 'hearing2',
+                            tipoOitiva: 'sindicado', 
+                            witnessName: 'Maria Santos', 
+                            witnessRank: 'Soldado',
+                            date: new Date('2025-08-26'), 
+                            time: '10:00',
+                            status: 'Agendada'
+                        }
+                    ];
+                    console.log('Usando oitivas simuladas');
+                }
+
+                renderHearingsGrid(hearings, hearingsGrid);
+            } catch (error) {
+                console.error('Erro ao carregar oitivas:', error);
+                hearingsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <p>Erro ao carregar oitivas</p>
+                        <p class="empty-state-subtitle">Tente recarregar a página</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Render hearings grid
+        function renderHearingsGrid(hearings, container) {
+            if (hearings.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>Nenhuma oitiva agendada ainda</p>
+                        <p class="empty-state-subtitle">Clique em "Agendar Nova Oitiva" para criar uma nova oitiva</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = hearings.map(hearing => {
+                    const displayDate = hearing.date instanceof Date ? 
+                        hearing.date.toLocaleDateString('pt-BR') : 
+                        new Date(hearing.date).toLocaleDateString('pt-BR');
+                    
+                    const statusClass = hearing.status ? hearing.status.toLowerCase().replace('ç', 'c').replace('ã', 'a') : 'agendada';
+                    const hearingType = hearing.tipoOitiva || 'testemunha';
+                    const typeLabel = hearingType === 'sindicado' ? 'Sindicado' : 'Testemunha';
+                    
+                    return `
+                        <div class="hearing-card">
+                            <div class="hearing-info">
+                                <h4>${hearing.witnessName}</h4>
+                                <p class="hearing-rank">${hearing.witnessRank}</p>
+                                <p class="hearing-type"><strong>Tipo:</strong> ${typeLabel}</p>
+                                <p class="hearing-datetime">${displayDate} às ${hearing.time}</p>
+                                <span class="status-badge status-${statusClass}">${hearing.status}</span>
+                            </div>
+                            <div class="hearing-actions">
+                                <button class="primary-btn" onclick="startHearing('${hearing.id}')">Realizar Oitiva</button>
+                                <button class="secondary-btn" onclick="editHearing('${hearing.id}')">Editar</button>
+                                <button class="danger-btn" onclick="cancelHearing('${hearing.id}')">Cancelar</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Document actions
+        function downloadDocument(docId) {
+            alert(`Download do documento ${docId} iniciado`);
+        }
+
+        function removeDocument(docId) {
+            if (confirm('Deseja realmente remover este documento?')) {
+                alert(`Documento ${docId} removido`);
+                loadDocuments();
+            }
+        }
+
+        // Hearing actions
+        function startHearing(hearingId) {
+            window.location.href = `realizar-oitiva.html?inquiry=${inquiryId}&hearing=${hearingId}`;
+        }
+
+        function editHearing(hearingId) {
+            alert(`Editar oitiva ${hearingId} - Funcionalidade a ser implementada`);
+        }
+
+        function cancelHearing(hearingId) {
+            if (confirm('Deseja realmente cancelar esta oitiva?')) {
+                alert(`Oitiva ${hearingId} cancelada`);
+                loadHearings();
+            }
+        }
+
+        // Initialize page when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+        console.log('📋 Detalhes da Sindicância carregados com sucesso!');
+    </script>
+</body>
+</html>

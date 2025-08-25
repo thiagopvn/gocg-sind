@@ -1,0 +1,67 @@
+{
+  "version": 2,
+  "name": "sind-gocg-web",
+  "builds": [
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/login.html"
+    },
+    {
+      "src": "/login",
+      "dest": "/login.html"
+    },
+    {
+      "src": "/dashboard",
+      "dest": "/dashboard-simple.html"
+    },
+    {
+      "src": "/inquiry",
+      "dest": "/inquiry.html"
+    },
+    {
+      "src": "/hearing",
+      "dest": "/hearing.html"
+    },
+    {
+      "src": "/realizar-oitiva",
+      "dest": "/realizar-oitiva.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "microphone=(self), camera=(self)"
+        }
+      ]
+    }
+  ]
+}

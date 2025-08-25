@@ -1,0 +1,588 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    color: #333;
+}
+
+.app-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.header h1 {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.back-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.user-email {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.logout-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.main-content {
+    flex: 1;
+    padding: 20px 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.hearing-header {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.hearing-header h2 {
+    color: #1e3c72;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.hearing-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.hearing-info p {
+    color: #495057;
+    font-size: 16px;
+}
+
+#witness-info {
+    font-weight: 500;
+    color: #1e3c72;
+}
+
+#hearing-datetime {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+/* Editor Container */
+.editor-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
+    height: calc(100vh - 240px);
+    display: flex;
+    flex-direction: column;
+}
+
+.toolbar-container {
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.transcription-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.transcription-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.start-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.start-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.start-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.stop-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+    color: white;
+}
+
+.stop-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.stop-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.transcription-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.status-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.status-text.recording {
+    color: #dc3545;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+}
+
+.primary-btn.saved {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.success-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.success-btn:hover {
+    transform: translateY(-2px);
+}
+
+.secondary-btn {
+    background: #f8f9fa;
+    color: #333;
+    border: 1px solid #dee2e6;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondary-btn:hover {
+    background: #e9ecef;
+}
+
+/* Quill Editor Styles */
+#editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+#editor {
+    flex: 1;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    min-height: 400px;
+}
+
+/* Override Quill default styles */
+.ql-toolbar {
+    border: 1px solid #ddd !important;
+    border-bottom: none !important;
+    border-radius: 8px 8px 0 0 !important;
+    background: #f8f9fa;
+}
+
+.ql-container {
+    border: 1px solid #ddd !important;
+    border-top: none !important;
+    border-radius: 0 0 8px 8px !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
+.ql-editor {
+    padding: 20px !important;
+    min-height: 400px !important;
+}
+
+.ql-editor.ql-blank::before {
+    color: #adb5bd !important;
+    font-style: italic;
+    left: 20px !important;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.loading-content {
+    padding: 40px;
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #1e3c72;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modal-header {
+    padding: 20px 30px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    color: #1e3c72;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.close {
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #adb5bd;
+    line-height: 1;
+}
+
+.close:hover {
+    color: #495057;
+}
+
+.modal-body {
+    padding: 30px;
+}
+
+.modal-body p {
+    margin-bottom: 15px;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.confirmation-subtitle {
+    font-size: 14px !important;
+    color: #6c757d !important;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    padding: 20px 30px;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Shortcuts Helper */
+.shortcuts-helper {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    font-size: 12px;
+    color: #6c757d;
+    max-width: 200px;
+    border: 1px solid #e9ecef;
+}
+
+.shortcuts-helper h4 {
+    margin-bottom: 8px;
+    color: #1e3c72;
+    font-size: 13px;
+}
+
+.shortcuts-helper p {
+    margin-bottom: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header {
+        padding: 15px 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .header-left {
+        gap: 10px;
+    }
+    
+    .header h1 {
+        font-size: 20px;
+    }
+    
+    .header-right {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .main-content {
+        padding: 20px;
+    }
+    
+    .hearing-header {
+        padding: 20px;
+    }
+    
+    .hearing-header h2 {
+        font-size: 24px;
+    }
+    
+    .hearing-info {
+        gap: 8px;
+    }
+    
+    .toolbar-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .transcription-controls {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .editor-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .transcription-btn,
+    .primary-btn,
+    .success-btn {
+        font-size: 12px;
+        padding: 8px 16px;
+    }
+    
+    .editor-container {
+        height: calc(100vh - 300px);
+    }
+    
+    .ql-editor {
+        padding: 15px !important;
+        min-height: 300px !important;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+        padding: 20px;
+    }
+    
+    .shortcuts-helper {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .header-right {
+        justify-content: space-between;
+    }
+    
+    .hearing-header h2 {
+        font-size: 20px;
+    }
+    
+    .hearing-info p {
+        font-size: 14px;
+    }
+    
+    .transcription-controls {
+        justify-content: center;
+    }
+    
+    .editor-container {
+        height: calc(100vh - 320px);
+        margin-top: 10px;
+    }
+    
+    .ql-toolbar .ql-formats {
+        margin-right: 8px !important;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .header,
+    .toolbar-container,
+    .shortcuts-helper {
+        display: none !important;
+    }
+    
+    .editor-container {
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    .ql-toolbar {
+        display: none !important;
+    }
+    
+    .ql-container {
+        border: none !important;
+    }
+}

@@ -1,65 +1,68 @@
-import formidable from 'formidable';
-import fs from 'fs';
 import fetch from 'node-fetch';
 
+// Disable Vercel's default body parser to handle FormData
 export const config = {
     api: {
         bodyParser: false,
     },
 };
 
-export default async function handler(req, res) {
+export default async function handler(request) {
     // Only allow POST requests
-    if (req.method !== 'POST') {
-        return res.status(405).json({ 
+    if (request.method !== 'POST') {
+        return new Response(JSON.stringify({ 
             success: false, 
             error: 'Method not allowed. Use POST.' 
+        }), { 
+            status: 405,
+            headers: { 'Content-Type': 'application/json' }
         });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
         console.error('❌ OPENAI_API_KEY not found in environment variables');
-        return res.status(500).json({ 
+        return new Response(JSON.stringify({ 
             success: false, 
             error: 'OpenAI API key not configured on server' 
+        }), { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
         });
     }
 
     try {
-        // Parse the multipart form data
-        const form = formidable({
-            maxFileSize: 25 * 1024 * 1024, // 25MB limit
-            keepExtensions: true,
-        });
+        // Use native FormData parsing (available in Vercel runtime)
+        const formData = await request.formData();
+        const audioFile = formData.get('audio');
 
-        const [fields, files] = await form.parse(req);
-        
-        if (!files.audio || !files.audio[0]) {
-            return res.status(400).json({ 
+        if (!audioFile) {
+            return new Response(JSON.stringify({ 
                 success: false, 
                 error: 'No audio file found in request' 
+            }), { 
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
             });
         }
 
-        const audioFile = files.audio[0];
-        
         console.log(`📤 Processing audio file:`);
-        console.log(`   Original name: '${audioFile.originalFilename}'`);
-        console.log(`   MIME type: '${audioFile.mimetype}'`);
+        console.log(`   Name: '${audioFile.name}'`);
+        console.log(`   Type: '${audioFile.type}'`);
         console.log(`   Size: ${audioFile.size} bytes`);
-        console.log(`   Temp path: '${audioFile.filepath}'`);
 
         // Step 1: Transcribe with Whisper
         console.log('🔄 Step 1: Transcribing with Whisper...');
         const rawText = await transcribeWithWhisper(audioFile, apiKey);
         
         if (!rawText || rawText.trim().length === 0) {
-            // Clean up temp file
-            fs.unlink(audioFile.filepath, () => {});
-            return res.status(200).json({ 
+            return new Response(JSON.stringify({ 
                 success: true, 
-                formattedText: '[Nenhum áudio detectado]' 
+                formattedText: '[Nenhum áudio detectado]',
+                rawText: ''
+            }), { 
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
             });
         }
 
@@ -71,63 +74,61 @@ export default async function handler(req, res) {
 
         console.log('✨ GPT-4 formatted text:', formattedText.substring(0, 100) + '...');
 
-        // Clean up temp file
-        fs.unlink(audioFile.filepath, (err) => {
-            if (err) console.warn('⚠️ Could not clean up temp file:', err.message);
-        });
-
-        return res.status(200).json({ 
+        return new Response(JSON.stringify({ 
             success: true, 
             formattedText: formattedText,
             rawText: rawText 
+        }), { 
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
         });
 
     } catch (error) {
         console.error('❌ Error in transcribe API:', error);
-        return res.status(500).json({ 
+        return new Response(JSON.stringify({ 
             success: false, 
             error: `Server error: ${error.message}` 
+        }), { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
         });
     }
 }
 
 async function transcribeWithWhisper(audioFile, apiKey) {
     try {
-        // Create form data for Whisper API
-        const formData = new FormData();
+        // Create form data for OpenAI Whisper API
+        const openAIFormData = new FormData();
         
-        // Read the file as a buffer and create a Blob
-        const fileBuffer = fs.readFileSync(audioFile.filepath);
-        const audioBlob = new Blob([fileBuffer], { type: audioFile.mimetype || 'audio/webm' });
-        
-        // Determine filename with proper extension
+        // Determine proper filename based on MIME type
         let fileName = 'audio.webm';
-        if (audioFile.originalFilename) {
-            fileName = audioFile.originalFilename;
-        } else if (audioFile.mimetype) {
-            if (audioFile.mimetype.includes('webm')) fileName = 'audio.webm';
-            else if (audioFile.mimetype.includes('mp4')) fileName = 'audio.mp4';
-            else if (audioFile.mimetype.includes('ogg')) fileName = 'audio.ogg';
-            else if (audioFile.mimetype.includes('wav')) fileName = 'audio.wav';
+        if (audioFile.type) {
+            if (audioFile.type.includes('webm')) fileName = 'audio.webm';
+            else if (audioFile.type.includes('mp4')) fileName = 'audio.mp4';
+            else if (audioFile.type.includes('ogg')) fileName = 'audio.ogg';
+            else if (audioFile.type.includes('wav')) fileName = 'audio.wav';
+            else if (audioFile.type.includes('mpeg')) fileName = 'audio.mp3';
         }
 
-        formData.append('file', audioBlob, fileName);
-        formData.append('model', 'whisper-1');
-        formData.append('language', 'pt');
-        formData.append('response_format', 'json');
-        formData.append('temperature', '0.2');
+        // Append the audio file directly (it's already a File/Blob)
+        openAIFormData.append('file', audioFile, fileName);
+        openAIFormData.append('model', 'whisper-1');
+        openAIFormData.append('language', 'pt');
+        openAIFormData.append('response_format', 'json');
+        openAIFormData.append('temperature', '0.2');
 
         console.log(`📤 Sending to Whisper API:`);
         console.log(`   Filename: '${fileName}'`);
-        console.log(`   MIME Type: '${audioFile.mimetype}'`);
+        console.log(`   MIME Type: '${audioFile.type}'`);
         console.log(`   Size: ${audioFile.size} bytes`);
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`
+                // Note: Don't set Content-Type header, fetch will set it automatically with boundary
             },
-            body: formData
+            body: openAIFormData
         });
 
         if (!response.ok) {

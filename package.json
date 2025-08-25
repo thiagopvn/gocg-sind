@@ -1,6 +1,7 @@
 {
   "name": "sind-gocg-web",
   "version": "1.0.0",
+  "type": "module",
   "description": "Web application for managing military inquiry hearings",
   "main": "public/index.html",
   "scripts": {
